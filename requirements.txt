@@ -1,0 +1,6 @@
+numpy
+# Match the cupy version to your local CUDA installation (e.g., cupy-cuda11x for CUDA 11.x)
+cupy-cuda12x
+pyqt5
+python-dotenv
+tqdm
