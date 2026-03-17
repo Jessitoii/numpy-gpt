@@ -3,7 +3,7 @@
 A character-level GPT model built entirely from scratch using only **NumPy** and **CuPy**. This project demonstrates the implementation of a Transformer architecture without the use of deep learning frameworks like PyTorch or TensorFlow. The model is trained on personal WhatsApp conversation exports to mimic a specific messaging style.
 
 ## Why I built this
-I created this project to deeply understand the internals of the Transformer architecture by implementing every component from scratch. By writing the tokenization, positional encoding, multi-head attention, layer normalization, feedforward networks, backpropagation, and the Adam optimizer in pure Python/NumPy, I gained a much clearer intuition for how these models function at a mathematical level.
+Most people learn transformers through PyTorch abstractions. I wanted to understand what actually happens at the matrix level — so I implemented everything by hand: forward pass, backpropagation, and Adam optimizer, with no autograd.
 
 ## Architecture Overview
 The model follows the standard GPT-style (decoder-only) Transformer architecture:
