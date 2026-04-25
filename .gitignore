@@ -219,7 +219,9 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 
-data/
-models/
-!models/README.md
+data/*
 !data/README.md
+
+
+models/*
+!models/README.md
