@@ -1,10 +1,29 @@
+"""
+Model serialization and deserialization utilities.
+
+This module provides functions to save and load Transformer model weights
+using pickle, with support for transferring weights between CPU and GPU.
+"""
+
 import pickle
 import cupy as cp
 import numpy as np
 
 
 def save_model(model, filename="whatsapp_gpt.pkl"):
-    # Collect all weights, moving them from GPU to CPU before serialization
+    """
+    Serializes and saves the model weights to a file.
+
+    All weights are moved from GPU (CuPy) to CPU (NumPy) before being
+    saved to ensure compatibility.
+
+    Args:
+        model (Transformer): The Transformer model to save.
+        filename (str): Target filename for the saved weights. 
+                        Defaults to "whatsapp_gpt.pkl".
+    """
+    # Collect all weights into a dictionary
+    # Moving them from GPU (CuPy) to CPU (NumPy) before serialization is critical
     weights = {
         'emb':    cp.asnumpy(model.token_embedding.weights),
         'head':   cp.asnumpy(model.head),
@@ -13,6 +32,7 @@ def save_model(model, filename="whatsapp_gpt.pkl"):
         'blocks': []
     }
     
+    # Iterate through each Transformer block to extract sub-layer weights
     for b in model.blocks:
         b_weights = {
             'Wq': cp.asnumpy(b.mha.Wq), 'Wk': cp.asnumpy(b.mha.Wk),
@@ -24,21 +44,34 @@ def save_model(model, filename="whatsapp_gpt.pkl"):
         }
         weights['blocks'].append(b_weights)
         
+    # Write the weight dictionary to disk
     with open(filename, 'wb') as f:
         pickle.dump(weights, f)
 
 
 def load_model(model, filename="whatsapp_gpt.pkl"):
+    """
+    Loads model weights from a file and restores them into the model.
+
+    Weights are moved from CPU (NumPy) back to GPU (CuPy) during the 
+    restoration process.
+
+    Args:
+        model (Transformer): The Transformer model to restore weights into.
+        filename (str): The filename to load from. 
+                        Defaults to "whatsapp_gpt.pkl".
+    """
     print(f"Loading model from: {filename}...")
     with open(filename, 'rb') as f:
         weights = pickle.load(f)
     
-    # Restore weights, moving them back to GPU
+    # Restore global weights, moving them back to GPU
     model.token_embedding.weights = cp.asarray(weights['emb'])
     model.head                    = cp.asarray(weights['head'])
     model.ln_f.gamma              = cp.asarray(weights['ln_f_g'])
     model.ln_f.beta               = cp.asarray(weights['ln_f_b'])
     
+    # Restore block-specific weights
     for i, b in enumerate(model.blocks):
         bw = weights['blocks'][i]
         b.mha.Wq = cp.asarray(bw['Wq'])
@@ -54,4 +87,4 @@ def load_model(model, filename="whatsapp_gpt.pkl"):
         b.ln2.gamma = cp.asarray(bw['ln2g'])
         b.ln2.beta  = cp.asarray(bw['ln2b'])
 
-    print("Model loaded successfully.")
+    print("Model loaded successfully.")

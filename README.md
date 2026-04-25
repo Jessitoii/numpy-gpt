@@ -1,75 +1,214 @@
-# WhatsApp GPT
+# numpy-gpt
 
-A character-level GPT model built entirely from scratch using only **NumPy** and **CuPy**. This project demonstrates the implementation of a Transformer architecture without the use of deep learning frameworks like PyTorch or TensorFlow. The model is trained on personal WhatsApp conversation exports to mimic a specific messaging style.
+![Python](https://img.shields.io/badge/Python-3.13-3776AB?style=flat&logo=python&logoColor=white)
+![NumPy](https://img.shields.io/badge/NumPy-only-013243?style=flat&logo=numpy&logoColor=white)
+![CuPy](https://img.shields.io/badge/CuPy-GPU_accelerated-76B900?style=flat&logo=nvidia&logoColor=white)
+![PyQt5](https://img.shields.io/badge/PyQt5-GUI-41CD52?style=flat&logo=qt&logoColor=white)
+![License](https://img.shields.io/badge/License-MIT-yellow?style=flat)
+![Status](https://img.shields.io/badge/Status-Experimental-orange?style=flat)
 
-## Why I built this
-Most people learn transformers through PyTorch abstractions. I wanted to understand what actually happens at the matrix level — so I implemented everything by hand: forward pass, backpropagation, and Adam optimizer, with no autograd.
+> A GPT model built from scratch using **only NumPy and CuPy** — no PyTorch, no TensorFlow, no autograd.  
+> Trained on a personal WhatsApp conversation export to mimic a real chat style.
 
-## Architecture Overview
-The model follows the standard GPT-style (decoder-only) Transformer architecture:
-- **Tokenizer:** Custom character-level tokenizer.
-- **Positional Encoding:** Sinusoidal positional embeddings.
-- **Attention:** Multi-head causal self-attention with causal masking.
-- **Blocks:** Pre-norm Transformer blocks.
-- **Loss Function:** Cross-entropy loss implemented from scratch.
-- **Optimizer:** Custom Adam optimizer implementation.
+---
 
-### Default Configuration
-- `embed_size`: 256
-- `num_heads`: 8
-- `num_blocks`: 4
-- `seq_len`: 128
+## Why This Exists
+
+Most transformer tutorials teach you how to _call_ `nn.MultiheadAttention`.  
+This project teaches you what's **inside** it.
+
+Every matrix multiply, every gradient, every Adam update — implemented by hand.  
+No framework magic. No `.backward()`. Just NumPy, the chain rule, and stubbornness.
+
+The model was trained on a personal WhatsApp chat export and left to predict  
+the next character of a real conversation. Watching it hallucinate messages  
+between two people it was trained on is equal parts eerie and hilarious.
+
+---
+
+## Architecture
+
+Standard GPT-style (decoder-only) Transformer, built from first principles:
+
+```
+Input Characters
+      │
+      ▼
+┌─────────────────────┐
+│  Character Tokenizer │   vocab_size = unique chars in chat
+└─────────────────────┘
+      │
+      ▼
+┌─────────────────────┐
+│  Token Embedding     │   [B, T] → [B, T, 256]
+│  + Sinusoidal PE     │   positional encoding added
+└─────────────────────┘
+      │
+      ▼
+┌─────────────────────┐  ×4 blocks
+│  Pre-Norm Block      │
+│  ┌───────────────┐  │
+│  │  LayerNorm    │  │
+│  │  Multi-Head   │  │   8 heads, causal mask
+│  │  Self-Attn    │  │   head_dim = 256 / 8 = 32
+│  │  (causal)     │  │
+│  └───────────────┘  │
+│  ┌───────────────┐  │
+│  │  LayerNorm    │  │
+│  │  Feed-Forward │  │   dim → 4×dim → dim
+│  └───────────────┘  │
+└─────────────────────┘
+      │
+      ▼
+┌─────────────────────┐
+│  Linear Head         │   [B, T, 256] → [B, T, vocab_size]
+└─────────────────────┘
+      │
+      ▼
+┌─────────────────────┐
+│  Cross-Entropy Loss  │   from scratch, no F.cross_entropy
+│  Adam Optimizer      │   custom implementation
+└─────────────────────┘
+```
+
+**Everything above — forward pass, backprop, optimizer — is implemented manually in NumPy/CuPy.**
+
+---
+
+## Hyperparameter Configuration
+
+| Parameter      | Value   | Notes                             |
+|----------------|---------|-----------------------------------|
+| `embed_size`   | 256     | Model dimensionality              |
+| `num_heads`    | 8       | Attention heads (head_dim = 32)   |
+| `num_blocks`   | 4       | Transformer layers                |
+| `seq_len`      | 128     | Context window (chars)            |
+| `learning_rate`| 1e-4    | Adam LR                           |
+| `epochs`       | 60,000  | Trained overnight on RTX 3060     |
+| `beta1`        | 0.9     | Adam first moment                 |
+| `beta2`        | 0.99    | Adam second moment                |
+| `eps`          | 1e-8    | Adam epsilon                      |
+
+> Config lives at the top of `train.py` in ALL_CAPS constants.  
+> No YAML, no config classes — just variables at the top of the file.
+
+---
+
+## Tech Stack
+
+| Component       | Tool                  | Purpose                                  |
+|-----------------|-----------------------|------------------------------------------|
+| Compute (CPU)   | NumPy                 | All tensor ops, default backend          |
+| Compute (GPU)   | CuPy                  | Drop-in NumPy replacement for CUDA       |
+| GUI             | PyQt5                 | Interactive chat window                  |
+| Data            | WhatsApp `.txt` export| Training corpus — raw personal chat logs |
+| Serialization   | pickle (`.pkl`)       | Saving/loading model weights             |
+
+---
 
 ## Project Structure
-- `main.py`: Core model definition and architecture components.
-- `train.py`: Script for training the model on WhatsApp text data.
-- `test.py`: CLI script for running inference and generating text.
-- `mainwindow.py`: PyQt5 GUI for a more interactive chat experience.
-- `tokenizer.py`: Character-level tokenizer logic.
-- `attention.py`: Implementation of multi-head self-attention modules.
-- `transformer.py`: Definition of individual Transformer blocks.
-- `mhe.py`: Specialized multi-head embedding and attention components.
-- `saving.py`: Logic for saving and loading model weights as `.pkl` files.
-- `utils.py`: General helper functions and text generation logic.
+
+```
+numpy-gpt/
+├── main.py           # Core model class + architecture components
+├── train.py          # Training loop, hyperparameters, data loading
+├── test.py           # CLI inference & text generation
+├── mainwindow.py     # PyQt5 GUI for interactive chat
+├── attention.py      # Multi-head causal self-attention (manual backprop)
+├── transformer.py    # Transformer block (pre-norm, FFN, residuals)
+├── tokenizer.py      # Character-level tokenizer
+├── mhe.py            # Multi-head embedding components
+├── saving.py         # Weight serialization (.pkl)
+├── utils.py          # Text generation helpers
+├── requirements.txt
+└── .env.example      # WHATSAPP_PATH config
+```
+
+---
 
 ## Setup & Usage
 
 ### 1. Install Dependencies
-Ensure you have Python 3.9+ installed.
+
 ```bash
 pip install -r requirements.txt
 ```
 
-### 2. Set up Environment
-Create a `.env` file (see `.env.example`) and specify the path to your WhatsApp export:
-```
-WHATSAPP_PATH=data/my_chat.txt
+> **GPU (recommended):** CuPy requires a CUDA-compatible GPU. Install the version matching your CUDA:
+> ```bash
+> pip install cupy-cuda12x  # for CUDA 12.x
+> ```
+> The code auto-detects CuPy availability and falls back to NumPy silently.
+
+### 2. Configure Environment
+
+```bash
+cp .env.example .env
+# Edit .env and set your WhatsApp export path:
+# WHATSAPP_PATH=data/my_chat.txt
 ```
 
-### 3. Export WhatsApp Chat
-- Open a chat on WhatsApp.
-- Tap the menu (three dots) or the contact/group name.
-- Select **Export Chat** -> **Without Media**.
-- Save the resulting `.txt` file to your data directory.
+### 3. Export Your WhatsApp Chat
 
-### 4. Training
-Run the training script to start learning from your data:
+1. Open any chat in WhatsApp
+2. Tap **⋮ Menu** → **More** → **Export Chat**
+3. Select **Without Media**
+4. Save the `.txt` file to `data/`
+
+### 4. Train
+
 ```bash
 python train.py
 ```
 
-### 5. Inference
-To test the model via the command line:
+Training runs for the configured number of epochs. Weights are saved as `.pkl` files.  
+On an RTX 3060, ~60k epochs takes roughly 10–12 hours overnight.
+
+### 5. Generate Text (CLI)
+
 ```bash
 python test.py
 ```
 
-### 6. UI Interaction
-For a graphical chat interface:
+### 6. Generate Text (GUI)
+
 ```bash
 python mainwindow.py
 ```
 
-## Requirements
-- **Python 3.9+**
-- **NVIDIA GPU:** Recommended for **CuPy** acceleration. The code will automatically fall back to **NumPy** if a compatible GPU/CUDA installation is not found.
+---
+
+## Training Details
+
+- **Hardware:** NVIDIA RTX 3060
+- **Duration:** ~12 hours (overnight run)
+- **Epochs:** ~60,000
+- **Dataset:** Single WhatsApp conversation export (character-level, no preprocessing beyond parsing)
+- **Observation:** After enough epochs the model starts producing plausible message structures — correct sender prefixes, punctuation patterns, emoji placement — without ever being told what any of those things are.
+
+---
+
+## What This Demonstrates
+
+- Full **forward pass** implementation: embedding → attention → FFN → logits → loss
+- Full **backward pass**: manual gradient computation through every layer
+- **Multi-head causal self-attention** from scratch including the causal mask
+- **Adam optimizer** implemented without any library
+- **CuPy/NumPy interoperability** — same codebase, GPU optional
+- Training a generative character-level model on real personal data
+
+---
+
+## Limitations
+
+- Character-level means slow convergence and limited coherence at scale
+- No batched training (or minimal batch support) — single-sequence updates
+- No gradient clipping — training can be unstable at higher LRs
+- `.pkl` weight format is not portable across Python versions
+- This is a learning project, not production code
+
+---
+
+## License
+
+MIT
