@@ -30,46 +30,7 @@ between two people it was trained on is equal parts eerie and hilarious.
 
 Standard GPT-style (decoder-only) Transformer, built from first principles:
 
-```
-Input Characters
-      │
-      ▼
-┌─────────────────────┐
-│  Character Tokenizer │   vocab_size = unique chars in chat
-└─────────────────────┘
-      │
-      ▼
-┌─────────────────────┐
-│  Token Embedding     │   [B, T] → [B, T, 256]
-│  + Sinusoidal PE     │   positional encoding added
-└─────────────────────┘
-      │
-      ▼
-┌─────────────────────┐  ×4 blocks
-│  Pre-Norm Block      │
-│  ┌───────────────┐  │
-│  │  LayerNorm    │  │
-│  │  Multi-Head   │  │   8 heads, causal mask
-│  │  Self-Attn    │  │   head_dim = 256 / 8 = 32
-│  │  (causal)     │  │
-│  └───────────────┘  │
-│  ┌───────────────┐  │
-│  │  LayerNorm    │  │
-│  │  Feed-Forward │  │   dim → 4×dim → dim
-│  └───────────────┘  │
-└─────────────────────┘
-      │
-      ▼
-┌─────────────────────┐
-│  Linear Head         │   [B, T, 256] → [B, T, vocab_size]
-└─────────────────────┘
-      │
-      ▼
-┌─────────────────────┐
-│  Cross-Entropy Loss  │   from scratch, no F.cross_entropy
-│  Adam Optimizer      │   custom implementation
-└─────────────────────┘
-```
+![Architecture](./assets/architecture.svg)
 
 **Everything above — forward pass, backprop, optimizer — is implemented manually in NumPy/CuPy.**
 
@@ -178,6 +139,20 @@ python mainwindow.py
 
 ---
 
+## Attention Visualization
+
+Average attention weights from a trained forward pass (Layer 1).  
+Shows average attention paid by each position to all other positions.
+
+![Attention heatmap](assets/attention_layer0_avg.png)
+
+Causal self-attention weights from a trained forward pass (Layer 1, Head 1).  
+Upper triangle is masked — each token can only attend to itself and previous positions.
+
+![Attention heatmap](assets/attention_layer0_head0.png)
+
+---
+
 ## Training Details
 
 - **Hardware:** NVIDIA RTX 3060
@@ -187,6 +162,14 @@ python mainwindow.py
 - **Observation:** After enough epochs the model starts producing plausible message structures — correct sender prefixes, punctuation patterns, emoji placement — without ever being told what any of those things are.
 
 ---
+
+## Sample Output
+
+The model was trained on Turkish chat data. After enough epochs it learns
+sender prefixes, punctuation patterns, and even emoji placement — without
+being told what any of those things are.
+
+![Sample Output](assets/sample.png)
 
 ## What This Demonstrates
 

@@ -207,21 +207,22 @@ class TransformerBlock:
         self.ln1 = LayerNorm(embed_size)
         self.ln2 = LayerNorm(embed_size)
 
-    def forward(self, x):
+    def forward(self, x, return_attention=False):
         """
         Performs the forward pass using the Pre-norm architecture.
 
         Args:
             x (ndarray): Input tensor (Batch, SeqLen, EmbedSize).
+            return_attention (bool): Whether to return attention weights.
 
         Returns:
-            ndarray: The processed block output.
+            ndarray or tuple: The processed block output, and optionally attention weights.
         """
         # Pre-norm architecture (GPT-style): Apply norm BEFORE the sub-layers
         
         # 1. Self-attention sub-layer with residual connection
         x_norm, self.ln1_cache = self.ln1.forward(x)
-        attn_out, _ = self.mha.forward(x_norm)
+        attn_out, attn_weights = self.mha.forward(x_norm)
         self.mha_cache = self.mha.cache
         x = x + attn_out  # Residual connection adds the original input back
 
@@ -231,6 +232,8 @@ class TransformerBlock:
         self.ffn_cache = self.ffn.cache
         x = x + ffn_out  # Residual connection adds the intermediate output back
         
+        if return_attention:
+            return x, attn_weights
         return x
 
 

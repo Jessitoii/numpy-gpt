@@ -69,15 +69,16 @@ class NanoGPT:
         self.ln_f = LayerNorm(embed_size)
         self.head = cp.random.randn(embed_size, vocab_size) * 0.01
 
-    def forward(self, idx):
+    def forward(self, idx, return_attention=False):
         """
         Performs the forward pass.
 
         Args:
             idx (ndarray): Input indices of shape (T,) or (1, T).
+            return_attention (bool): Whether to return attention weights.
 
         Returns:
-            ndarray: Predicted logits.
+            ndarray or tuple: Predicted logits, and optionally attention weights.
         """
         if isinstance(idx, np.ndarray):
             idx = cp.asarray(idx)
@@ -92,13 +93,19 @@ class NanoGPT:
         # Process through layers
         x = self.token_embedding.forward(idx)
         x = x + self.positional_encoding[:T, :]
-        x = self.transformer_block.forward(x)
+        
+        if return_attention:
+            x, attn_weights_out = self.transformer_block.forward(x, return_attention=True)
+        else:
+            x = self.transformer_block.forward(x)
         
         x, self.ln_f_cache = self.ln_f.forward(x)
         self.last_x = x
         
         # Final linear projection
         logits = x @ self.head
+        if return_attention:
+            return logits, attn_weights_out
         return logits
 
     
@@ -135,15 +142,17 @@ class DeepNanoGPT:
         self.ln_f = LayerNorm(embed_size)
         self.head = cp.random.randn(embed_size, vocab_size) * 0.01
 
-    def forward(self, idx):
+    def forward(self, idx, return_attention=False, layer_idx=0):
         """
         Performs the forward pass for a batch of sequences.
 
         Args:
             idx (ndarray): Input indices of shape (B, T).
+            return_attention (bool): Whether to return attention weights.
+            layer_idx (int): Which layer's attention weights to return.
 
         Returns:
-            ndarray: Predicted logits of shape (B, T, V).
+            ndarray or tuple: Predicted logits, and optionally attention weights.
         """
         # Move data to GPU if necessary
         if isinstance(idx, np.ndarray):
@@ -157,8 +166,12 @@ class DeepNanoGPT:
         x = x + self.positional_encoding[:T, :]
         
         # Sequentially pass through all Transformer blocks
-        for block in self.blocks:
-            x = block.forward(x)
+        attn_weights_out = None
+        for i, block in enumerate(self.blocks):
+            if return_attention and i == layer_idx:
+                x, attn_weights_out = block.forward(x, return_attention=True)
+            else:
+                x = block.forward(x)
             
         # Final normalization
         x, self.ln_f_cache = self.ln_f.forward(x)
@@ -166,6 +179,9 @@ class DeepNanoGPT:
         
         # Output projection: (B, T, embed_size) @ (embed_size, vocab_size) -> (B, T, vocab_size)
         logits = x @ self.head
+        
+        if return_attention:
+            return logits, attn_weights_out
         return logits
 
 

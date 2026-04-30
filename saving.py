@@ -6,9 +6,16 @@ using pickle, with support for transferring weights between CPU and GPU.
 """
 
 import pickle
-import cupy as cp
 import numpy as np
 
+try:
+    import cupy as cp
+    def to_numpy(x): return cp.asnumpy(x)
+    def to_device(x): return cp.asarray(x)
+except ImportError:
+    cp = np
+    def to_numpy(x): return x if isinstance(x, np.ndarray) else np.array(x)
+    def to_device(x): return np.asarray(x)
 
 def save_model(model, filename="whatsapp_gpt.pkl"):
     """
